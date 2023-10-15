@@ -44,6 +44,7 @@ const AllCodes = () => {
       }
     );
     localStorage.setItem("email", user.email);
+    localStorage.setItem("name",user.name)
   };
 
   useEffect(() => {

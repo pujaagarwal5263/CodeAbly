@@ -17,6 +17,8 @@ import {
   Flex,
 } from "@chakra-ui/react";
 import OpenAI from "openai";
+import Spaces from "@ably/spaces";
+import { Realtime } from "ably";
 
 const extensions = [javascript({ jsx: true })];
 
@@ -32,6 +34,12 @@ const CodeEditor = () => {
   const [aiResponse, setAIResponse] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [isLoading, setLoading] = useState(false);
+  const [userSet, setUserSet] = useState(new Set());
+
+  useEffect(() => {
+    getAllMembersofChannel()
+    allSpaceStuff();
+  }, []);
 
   useEffect(() => {
     // Make an API request to fetch code details by ID
@@ -134,7 +142,6 @@ const CodeEditor = () => {
     }, 12000);
   };
 
-
   const getAIHelp = async () => {
     setLoadingAI(true);
     setShowModal(true);
@@ -162,8 +169,105 @@ const CodeEditor = () => {
     }
   };
 
+  const currentURL = window.location.href;
+  const url = new URL(currentURL);
+  const spaceName = url.searchParams.get("space");
+
+
+  const allSpaceStuff = async () => {
+    if (spaceName) {
+      const client = new Realtime.Promise({
+        key: process.env.REACT_APP_ABLY_KEY,
+        clientId: process.env.REACT_APP_ABLY_CLIENDID,
+      });
+
+      const spaces = new Spaces(client);
+      const space = await spaces.get(spaceName, {
+        offlineTimeout: 180_000,
+      });
+
+      await space.enter({ name: localStorage.getItem("name") });
+
+      const allMembers = await space.members.getAll();
+
+      space.members.subscribe("enter", (memberUpdate) => {
+        const { profileData } = memberUpdate;
+        if (profileData && profileData.name) {
+          if (!userSet.has(profileData.name)) {
+            setUserSet(
+              (prevUserSet) => new Set([...prevUserSet, profileData.name])
+            );
+          }
+        }
+      });
+
+      space.members.subscribe("leave", (memberUpdate) => {
+        // console.log(memberUpdate, "leave ----");
+
+        const { profileData } = memberUpdate;
+        if (profileData && profileData.name) {
+          setUserSet((prevUserSet) => {
+            const newUserSet = new Set(prevUserSet);
+            newUserSet.delete(profileData.name);
+            return newUserSet;
+          });
+        }
+        
+      });
+
+    } else {
+      console.log("No 'space' parameter found in the URL.");
+    }
+  };
+
+  const getAllMembersofChannel = async () => {
+    if (spaceName) {
+      const client = new Realtime.Promise({
+        key: process.env.REACT_APP_ABLY_KEY,
+        clientId: process.env.REACT_APP_ABLY_CLIENDID,
+      });
+
+      const spaces = new Spaces(client);
+
+      const space = await spaces.get(spaceName, {
+        offlineTimeout: 180_000,
+      });
+
+      const allMembers = await space.members.getAll();
+
+      allMembers.forEach((member) => {
+        const { profileData } = member;
+        if (profileData && profileData.name) {
+          if (!userSet.has(profileData.name)) {
+            setUserSet((prevUserSet) => new Set([...prevUserSet, profileData.name]));
+          }
+        }
+      });
+    }
+  };
+
+  function hashEmail(email) {
+    const md5 = require("md5");
+    return md5(email.trim().toLowerCase());
+  }
+
   return (
     <Box m={6}>
+      <Flex>
+        {Array.from(userSet).map((userName, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center" }}>
+            <img
+              src={`https://www.gravatar.com/avatar/${hashEmail(
+                userName
+              )}?d=identicon`}
+              alt={`${userName}'s avatar`}
+              style={{ width: "24px", height: "24px", borderRadius: "50%" }}
+            />
+            <span>{userName}</span>
+          </div>
+        ))}
+      </Flex>
+
       <Flex>
         {testCases?.map((testCase, i) => (
           <Box
@@ -247,8 +351,8 @@ const CodeEditor = () => {
               <Button
                 onClick={getAIHelp}
                 _hover={{ bg: "black", color: "white" }}
-                bgColor="white" 
-                color="black" 
+                bgColor="white"
+                color="black"
                 border="1px solid black"
               >
                 Try Our AI ✨
@@ -263,9 +367,8 @@ const CodeEditor = () => {
       <Button
         onClick={getOutput}
         _hover={{ bg: "black", color: "white" }}
-        bgColor="black" 
-        color="white" 
-        
+        bgColor="black"
+        color="white"
         isLoading={isLoading}
       >
         Evaluate Code
@@ -297,7 +400,7 @@ const CodeEditor = () => {
             <Button
               onClick={() => setShowModal(false)}
               _hover={{ bg: "black", color: "white" }}
-              bgColor="white" 
+              bgColor="white"
               color="black"
               border="1px solid black"
             >

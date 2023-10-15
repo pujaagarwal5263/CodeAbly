@@ -122,8 +122,8 @@ const LandingPage = () => {
                   Real Time Sync Management 
                 </Heading>
                 <Text fontSize="md">
-                  Real time activity visualization isAuthenticated
-                  Component Locking Feature.
+                  Real time activity visualization and
+                  Component Locking Feature to maintain data synchronization.
                 </Text>
               </Box>
             </GridItem>
