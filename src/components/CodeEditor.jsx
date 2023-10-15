@@ -99,6 +99,25 @@ const CodeEditor = () => {
     }
   };
 
+  const registerSpace = async () => {
+    //also write a DB query to register this space in backend
+  const uuid = generateRandomUUID();  
+  const currentURL = new URL(window.location.href);
+
+  currentURL.searchParams.set('space', uuid);
+  const updatedURL = currentURL.toString();
+  window.location.href = updatedURL;
+  };
+  
+  // Function to generate a random UUID
+  function generateRandomUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
   const handlePayment = async () => {
     const options = {
       key: process.env.REACT_APP_RAZORPAY_KEY,
@@ -325,6 +344,7 @@ const CodeEditor = () => {
                 <div>Sample Output: {codeDetails.output}</div>
               </div>
               <br />
+              <Flex gap={5}>
               <Button
                 onClick={getSolution}
                 _hover={{ bg: "black", color: "white" }}
@@ -334,6 +354,16 @@ const CodeEditor = () => {
               >
                 Get Solution 👩‍💻
               </Button>
+              <Button
+                onClick={registerSpace}
+                _hover={{ bg: "black", color: "white" }}
+                bgColor="white" 
+                color="black" 
+                border="1px solid black"
+              >
+                Connect with a peer
+              </Button>
+              </Flex>
               <div>
                 {show === true && credits === true ? (
                   <pre
