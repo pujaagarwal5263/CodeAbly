@@ -19,6 +19,7 @@ import {
 import OpenAI from "openai";
 import Spaces from "@ably/spaces";
 import { Realtime } from "ably";
+import "./CodeEditor.css";
 
 const extensions = [javascript({ jsx: true })];
 
@@ -35,9 +36,10 @@ const CodeEditor = () => {
   const [showModal, setShowModal] = useState(false);
   const [isLoading, setLoading] = useState(false);
   const [userSet, setUserSet] = useState(new Set());
+  const [userAvatars, setUserAvatars] = useState({});
 
   useEffect(() => {
-    getAllMembersofChannel()
+    getAllMembersofChannel();
     allSpaceStuff();
   }, []);
 
@@ -173,7 +175,6 @@ const CodeEditor = () => {
   const url = new URL(currentURL);
   const spaceName = url.searchParams.get("space");
 
-
   const allSpaceStuff = async () => {
     if (spaceName) {
       const client = new Realtime.Promise({
@@ -186,7 +187,10 @@ const CodeEditor = () => {
         offlineTimeout: 180_000,
       });
 
-      await space.enter({ name: localStorage.getItem("name") });
+      await space.enter({
+        name: localStorage.getItem("name"),
+        avatar: localStorage.getItem("picture"),
+      });
 
       const allMembers = await space.members.getAll();
 
@@ -197,6 +201,10 @@ const CodeEditor = () => {
             setUserSet(
               (prevUserSet) => new Set([...prevUserSet, profileData.name])
             );
+            setUserAvatars((prevUserAvatars) => ({
+              ...prevUserAvatars,
+              [profileData.name]: profileData.avatar,
+            }));
           }
         }
       });
@@ -210,6 +218,11 @@ const CodeEditor = () => {
             const newUserSet = new Set(prevUserSet);
             newUserSet.delete(profileData.name);
             return newUserSet;
+          });
+          setUserAvatars((prevUserAvatars) => {
+            const newUserAvatars = { ...prevUserAvatars };
+            delete newUserAvatars[profileData.name];
+            return newUserAvatars;
           });
         }
         
@@ -239,7 +252,9 @@ const CodeEditor = () => {
         const { profileData } = member;
         if (profileData && profileData.name) {
           if (!userSet.has(profileData.name)) {
-            setUserSet((prevUserSet) => new Set([...prevUserSet, profileData.name]));
+            setUserSet(
+              (prevUserSet) => new Set([...prevUserSet, profileData.name])
+            );
           }
         }
       });
@@ -256,14 +271,16 @@ const CodeEditor = () => {
       <Flex>
         {Array.from(userSet).map((userName, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center" }}>
-            <img
-              src={`https://www.gravatar.com/avatar/${hashEmail(
-                userName
-              )}?d=identicon`}
-              alt={`${userName}'s avatar`}
-              style={{ width: "24px", height: "24px", borderRadius: "50%" }}
-            />
-            <span>{userName}</span>
+            <div className="avatar-container">
+              <img
+                src={userAvatars[userName] || `https://www.gravatar.com/avatar/${hashEmail(
+                  userName
+                )}?d=identicon`} 
+                alt={`${userName}'s avatar`}
+                className="avatar-image"
+              />
+              <span className="username">{userName}</span>
+            </div>
           </div>
         ))}
       </Flex>
