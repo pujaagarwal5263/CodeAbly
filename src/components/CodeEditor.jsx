@@ -37,6 +37,7 @@ const CodeEditor = () => {
   const [isLoading, setLoading] = useState(false);
   const [userSet, setUserSet] = useState(new Set());
   const [userAvatars, setUserAvatars] = useState({});
+  const [showSpaceItems, setShowSpaceItems] = useState(true);
 
   useEffect(() => {
     getAllMembersofChannel();
@@ -100,22 +101,73 @@ const CodeEditor = () => {
   };
 
   const registerSpace = async () => {
-    //also write a DB query to register this space in backend
-  const uuid = generateRandomUUID();  
-  const currentURL = new URL(window.location.href);
+    try {
+      const uuid = generateRandomUUID();
+      const currentURL = new URL(window.location.href);
+      const codeID = id;
+      const username = localStorage.getItem("name");
+      const profileURL = localStorage.getItem("picture");
 
-  currentURL.searchParams.set('space', uuid);
-  const updatedURL = currentURL.toString();
-  window.location.href = updatedURL;
+      // Make a POST request to the backend
+      const response = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/registerspace`,
+        {
+          codeID,
+          spaceID: uuid,
+          username,
+          profileURL,
+        }
+      );
+
+      // Handle the response, e.g., display a success message or perform any necessary actions
+      console.log("Space registered successfully:", response.data);
+
+      // Redirect to the updated URL with the space ID
+      currentURL.searchParams.set("space", uuid);
+      const updatedURL = currentURL.toString();
+      window.location.href = updatedURL;
+    } catch (error) {
+      // Handle any errors, e.g., display an error message or perform error handling
+      console.error("Error registering space:", error);
+    } finally {
+      console.log(showSpaceItems, "showSpaceItems");
+    }
   };
-  
+
+  const terminateSession = async () => {
+    const currentURL = new URL(window.location.href);
+    const spaceId = currentURL.searchParams.get("space");
+
+    if (spaceId) {
+      try {
+        await axios.post(`${process.env.REACT_APP_BACKEND_URL}/deletespace`, {
+          spaceID: spaceId,
+          codeID: id,
+        });
+
+        currentURL.searchParams.delete("space");
+        const updatedURL = currentURL.toString();
+        window.location.href = updatedURL;
+      } catch (error) {
+        console.error("Error deleting space:", error);
+      }
+    } else {
+      currentURL.searchParams.delete("space");
+      const updatedURL = currentURL.toString();
+      window.location.href = updatedURL;
+    }
+  };
+
   // Function to generate a random UUID
   function generateRandomUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-      const r = (Math.random() * 16) | 0;
-      const v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    });
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+      /[xy]/g,
+      function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      }
+    );
   }
 
   const handlePayment = async () => {
@@ -244,9 +296,7 @@ const CodeEditor = () => {
             return newUserAvatars;
           });
         }
-        
       });
-
     } else {
       console.log("No 'space' parameter found in the URL.");
     }
@@ -292,9 +342,12 @@ const CodeEditor = () => {
           <div key={i} style={{ display: "flex", alignItems: "center" }}>
             <div className="avatar-container">
               <img
-                src={userAvatars[userName] || `https://www.gravatar.com/avatar/${hashEmail(
-                  userName
-                )}?d=identicon`} 
+                src={
+                  userAvatars[userName] ||
+                  `https://www.gravatar.com/avatar/${hashEmail(
+                    userName
+                  )}?d=identicon`
+                }
                 alt={`${userName}'s avatar`}
                 className="avatar-image"
               />
@@ -345,24 +398,30 @@ const CodeEditor = () => {
               </div>
               <br />
               <Flex gap={5}>
-              <Button
-                onClick={getSolution}
-                _hover={{ bg: "black", color: "white" }}
-                bgColor="white" // Set background color to black
-                color="black" // Set text color to white
-                border="1px solid black"
-              >
-                Get Solution 👩‍💻
-              </Button>
-              <Button
-                onClick={registerSpace}
-                _hover={{ bg: "black", color: "white" }}
-                bgColor="white" 
-                color="black" 
-                border="1px solid black"
-              >
-                Connect with a peer
-              </Button>
+                <Button
+                  onClick={getSolution}
+                  _hover={{ bg: "black", color: "white" }}
+                  bgColor="white" // Set background color to black
+                  color="black" // Set text color to white
+                  border="1px solid black"
+                >
+                  Get Solution 👩‍💻
+                </Button>
+                <Button
+                  onClick={registerSpace}
+                  _hover={{ bg: "black", color: "white" }}
+                  bgColor="white"
+                  color="black"
+                  border="1px solid black"
+                >
+                  Connect with a peer
+                </Button>
+                <Button
+                  visibility={showSpaceItems ? "visible" : "hidden"}
+                  onClick={terminateSession}
+                >
+                  Terminate session
+                </Button>
               </Flex>
               <div>
                 {show === true && credits === true ? (
