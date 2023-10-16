@@ -37,12 +37,19 @@ const CodeEditor = () => {
   const [isLoading, setLoading] = useState(false);
   const [userSet, setUserSet] = useState(new Set());
   const [userAvatars, setUserAvatars] = useState({});
-  const [showSpaceItems, setShowSpaceItems] = useState(true);
-
+  const [showSpaceItems, setShowSpaceItems] = useState(
+    localStorage.getItem("session") && localStorage.getItem("session") === "true" ? true : false
+  );
   useEffect(() => {
     getAllMembersofChannel();
     allSpaceStuff();
   }, []);
+
+  useEffect(() => {
+    if (localStorage.getItem("session") === "false") {
+      setShowSpaceItems(false);
+    }
+  }, [localStorage.getItem("session")]);
 
   useEffect(() => {
     // Make an API request to fetch code details by ID
@@ -107,6 +114,7 @@ const CodeEditor = () => {
       const codeID = id;
       const username = localStorage.getItem("name");
       const profileURL = localStorage.getItem("picture");
+      localStorage.setItem("session",true);
 
       // Make a POST request to the backend
       const response = await axios.post(
@@ -135,6 +143,9 @@ const CodeEditor = () => {
   };
 
   const terminateSession = async () => {
+    localStorage.setItem("session",false)
+    setShowSpaceItems(false)
+    
     const currentURL = new URL(window.location.href);
     const spaceId = currentURL.searchParams.get("space");
 
