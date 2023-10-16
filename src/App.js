@@ -4,11 +4,15 @@ import { ChakraProvider, CheckboxGroup } from "@chakra-ui/react";
 import CodeEditor from './components/CodeEditor';
 import AllCodes from './components/AllCodes';
 import LandingPage from './components/Landing';
+import { Realtime } from 'ably';
+import { AblyProvider } from 'ably/react';
 
 function App() {
+  const client = new Realtime({ key: process.env.REACT_APP_ABLY_KEY });
 
   return (
     <>
+    <AblyProvider client={client}>
     <ChakraProvider>
     <BrowserRouter>
     <Routes>
@@ -19,6 +23,7 @@ function App() {
     </Routes>
     </BrowserRouter>
     </ChakraProvider>
+    </AblyProvider>
     </>
   );
 }

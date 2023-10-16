@@ -17,6 +17,9 @@ import {
   Flex,
 } from "@chakra-ui/react";
 import OpenAI from "openai";
+import Spaces from "@ably/spaces";
+import { Realtime } from "ably";
+import "./CodeEditor.css";
 
 const extensions = [javascript({ jsx: true })];
 
@@ -32,6 +35,21 @@ const CodeEditor = () => {
   const [aiResponse, setAIResponse] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [isLoading, setLoading] = useState(false);
+  const [userSet, setUserSet] = useState(new Set());
+  const [userAvatars, setUserAvatars] = useState({});
+  const [showSpaceItems, setShowSpaceItems] = useState(
+    localStorage.getItem("session") && localStorage.getItem("session") === "true" ? true : false
+  );
+  useEffect(() => {
+    getAllMembersofChannel();
+    allSpaceStuff();
+  }, []);
+
+  useEffect(() => {
+    if (localStorage.getItem("session") === "false") {
+      setShowSpaceItems(false);
+    }
+  }, [localStorage.getItem("session")]);
 
   useEffect(() => {
     // Make an API request to fetch code details by ID
@@ -89,6 +107,80 @@ const CodeEditor = () => {
     }
   };
 
+  const registerSpace = async () => {
+    try {
+      const uuid = generateRandomUUID();
+      const currentURL = new URL(window.location.href);
+      const codeID = id;
+      const username = localStorage.getItem("name");
+      const profileURL = localStorage.getItem("picture");
+      localStorage.setItem("session",true);
+
+      // Make a POST request to the backend
+      const response = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/registerspace`,
+        {
+          codeID,
+          spaceID: uuid,
+          username,
+          profileURL,
+        }
+      );
+
+      // Handle the response, e.g., display a success message or perform any necessary actions
+      console.log("Space registered successfully:", response.data);
+
+      // Redirect to the updated URL with the space ID
+      currentURL.searchParams.set("space", uuid);
+      const updatedURL = currentURL.toString();
+      window.location.href = updatedURL;
+    } catch (error) {
+      // Handle any errors, e.g., display an error message or perform error handling
+      console.error("Error registering space:", error);
+    } finally {
+      console.log(showSpaceItems, "showSpaceItems");
+    }
+  };
+
+  const terminateSession = async () => {
+    localStorage.setItem("session",false)
+    setShowSpaceItems(false)
+    
+    const currentURL = new URL(window.location.href);
+    const spaceId = currentURL.searchParams.get("space");
+
+    if (spaceId) {
+      try {
+        await axios.post(`${process.env.REACT_APP_BACKEND_URL}/deletespace`, {
+          spaceID: spaceId,
+          codeID: id,
+        });
+
+        currentURL.searchParams.delete("space");
+        const updatedURL = currentURL.toString();
+        window.location.href = updatedURL;
+      } catch (error) {
+        console.error("Error deleting space:", error);
+      }
+    } else {
+      currentURL.searchParams.delete("space");
+      const updatedURL = currentURL.toString();
+      window.location.href = updatedURL;
+    }
+  };
+
+  // Function to generate a random UUID
+  function generateRandomUUID() {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+      /[xy]/g,
+      function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      }
+    );
+  }
+
   const handlePayment = async () => {
     const options = {
       key: process.env.REACT_APP_RAZORPAY_KEY,
@@ -134,7 +226,6 @@ const CodeEditor = () => {
     }, 12000);
   };
 
-
   const getAIHelp = async () => {
     setLoadingAI(true);
     setShowModal(true);
@@ -162,8 +253,121 @@ const CodeEditor = () => {
     }
   };
 
+  const currentURL = window.location.href;
+  const url = new URL(currentURL);
+  const spaceName = url.searchParams.get("space");
+
+  const allSpaceStuff = async () => {
+    if (spaceName) {
+      const client = new Realtime.Promise({
+        key: process.env.REACT_APP_ABLY_KEY,
+        clientId: process.env.REACT_APP_ABLY_CLIENDID,
+      });
+
+      const spaces = new Spaces(client);
+      const space = await spaces.get(spaceName, {
+        offlineTimeout: 180_000,
+      });
+
+      await space.enter({
+        name: localStorage.getItem("name"),
+        avatar: localStorage.getItem("picture"),
+      });
+
+      const allMembers = await space.members.getAll();
+
+      space.members.subscribe("enter", (memberUpdate) => {
+        const { profileData } = memberUpdate;
+        if (profileData && profileData.name) {
+          if (!userSet.has(profileData.name)) {
+            setUserSet(
+              (prevUserSet) => new Set([...prevUserSet, profileData.name])
+            );
+            setUserAvatars((prevUserAvatars) => ({
+              ...prevUserAvatars,
+              [profileData.name]: profileData.avatar,
+            }));
+          }
+        }
+      });
+
+      space.members.subscribe("leave", (memberUpdate) => {
+        // console.log(memberUpdate, "leave ----");
+
+        const { profileData } = memberUpdate;
+        if (profileData && profileData.name) {
+          setUserSet((prevUserSet) => {
+            const newUserSet = new Set(prevUserSet);
+            newUserSet.delete(profileData.name);
+            return newUserSet;
+          });
+          setUserAvatars((prevUserAvatars) => {
+            const newUserAvatars = { ...prevUserAvatars };
+            delete newUserAvatars[profileData.name];
+            return newUserAvatars;
+          });
+        }
+      });
+    } else {
+      console.log("No 'space' parameter found in the URL.");
+    }
+  };
+
+  const getAllMembersofChannel = async () => {
+    if (spaceName) {
+      const client = new Realtime.Promise({
+        key: process.env.REACT_APP_ABLY_KEY,
+        clientId: process.env.REACT_APP_ABLY_CLIENDID,
+      });
+
+      const spaces = new Spaces(client);
+
+      const space = await spaces.get(spaceName, {
+        offlineTimeout: 180_000,
+      });
+
+      const allMembers = await space.members.getAll();
+
+      allMembers.forEach((member) => {
+        const { profileData } = member;
+        if (profileData && profileData.name) {
+          if (!userSet.has(profileData.name)) {
+            setUserSet(
+              (prevUserSet) => new Set([...prevUserSet, profileData.name])
+            );
+          }
+        }
+      });
+    }
+  };
+
+  function hashEmail(email) {
+    const md5 = require("md5");
+    return md5(email.trim().toLowerCase());
+  }
+
   return (
     <Box m={6}>
+      <Flex>
+        {Array.from(userSet).map((userName, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center" }}>
+            <div className="avatar-container">
+              <img
+                src={
+                  userAvatars[userName] ||
+                  `https://www.gravatar.com/avatar/${hashEmail(
+                    userName
+                  )}?d=identicon`
+                }
+                alt={`${userName}'s avatar`}
+                className="avatar-image"
+              />
+              <span className="username">{userName}</span>
+            </div>
+          </div>
+        ))}
+      </Flex>
+
       <Flex>
         {testCases?.map((testCase, i) => (
           <Box
@@ -204,15 +408,32 @@ const CodeEditor = () => {
                 <div>Sample Output: {codeDetails.output}</div>
               </div>
               <br />
-              <Button
-                onClick={getSolution}
-                _hover={{ bg: "black", color: "white" }}
-                bgColor="white" // Set background color to black
-                color="black" // Set text color to white
-                border="1px solid black"
-              >
-                Get Solution 👩‍💻
-              </Button>
+              <Flex gap={5}>
+                <Button
+                  onClick={getSolution}
+                  _hover={{ bg: "black", color: "white" }}
+                  bgColor="white" // Set background color to black
+                  color="black" // Set text color to white
+                  border="1px solid black"
+                >
+                  Get Solution 👩‍💻
+                </Button>
+                <Button
+                  onClick={registerSpace}
+                  _hover={{ bg: "black", color: "white" }}
+                  bgColor="white"
+                  color="black"
+                  border="1px solid black"
+                >
+                  Connect with a peer
+                </Button>
+                <Button
+                  visibility={showSpaceItems ? "visible" : "hidden"}
+                  onClick={terminateSession}
+                >
+                  Terminate session
+                </Button>
+              </Flex>
               <div>
                 {show === true && credits === true ? (
                   <pre
@@ -247,8 +468,8 @@ const CodeEditor = () => {
               <Button
                 onClick={getAIHelp}
                 _hover={{ bg: "black", color: "white" }}
-                bgColor="white" 
-                color="black" 
+                bgColor="white"
+                color="black"
                 border="1px solid black"
               >
                 Try Our AI ✨
@@ -263,9 +484,8 @@ const CodeEditor = () => {
       <Button
         onClick={getOutput}
         _hover={{ bg: "black", color: "white" }}
-        bgColor="black" 
-        color="white" 
-        
+        bgColor="black"
+        color="white"
         isLoading={isLoading}
       >
         Evaluate Code
@@ -297,7 +517,7 @@ const CodeEditor = () => {
             <Button
               onClick={() => setShowModal(false)}
               _hover={{ bg: "black", color: "white" }}
-              bgColor="white" 
+              bgColor="white"
               color="black"
               border="1px solid black"
             >

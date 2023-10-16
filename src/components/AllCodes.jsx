@@ -1,6 +1,6 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Tabs,
   TabList,
@@ -12,17 +12,30 @@ import {
   Avatar,
   Text,
   Icon,
-  Flex
+  Flex,
 } from "@chakra-ui/react";
 import { useAuth0 } from "@auth0/auth0-react";
 import Stars from "./Stars";
 import { ArrowForwardIcon } from "@chakra-ui/icons";
-import { FaSignOutAlt } from 'react-icons/fa';
-
+import { FaSignOutAlt } from "react-icons/fa";
+import {
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+} from "@chakra-ui/react";
+import { navigate } from "react-router-dom";
 
 const AllCodes = () => {
+  const navigate = useNavigate();
   const [codeArray, setCodeArray] = useState([]);
   const { user, isAuthenticated, isLoading, logout } = useAuth0();
+  const [showSpacesModal, setShowSpacesModal] = useState(false);
+  const [spacesData, setSpacesData] = useState([]);
+  const [selectedCodeID, setSelectedCodeID] = useState(null);
 
   const fetchCodes = async () => {
     const res = await axios.post(
@@ -44,22 +57,62 @@ const AllCodes = () => {
       }
     );
     localStorage.setItem("email", user.email);
+    localStorage.setItem("name", user.name);
+    localStorage.setItem("picture", user.picture);
   };
 
   useEffect(() => {
     const fetchData = async () => {
-    await saveUser();
-    await fetchCodes();
-    }
+      await saveUser();
+      await fetchCodes();
+    };
     if (!codeArray.length) {
       fetchData();
     }
   }, [codeArray]);
 
-   const solvedQuestionsNumbers = {
-    Numbers: codeArray.filter((codeData) => codeData.label === "numbers" && codeData.stars !== -1).length,
-    Arrays: codeArray.filter((codeData) => codeData.label === "arrays" && codeData.stars !== -1).length,
-    LinkedLists: codeArray.filter((codeData) => codeData.label === "linked_lists" && codeData.stars !== -1).length,
+  const getSpacesForCode = async (codeID) => {
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/getspaces`,
+        {
+          codeID: codeID,
+        }
+      );
+
+      setSpacesData(res.data);
+      setSelectedCodeID(codeID);
+      setShowSpacesModal(true);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    console.log(spacesData);
+  }, [spacesData]);
+
+  const closeSpacesModal = () => {
+    setShowSpacesModal(false);
+    setSpacesData([]);
+    setSelectedCodeID(null);
+  };
+
+  const handleHelp = (spaceId) => {
+    console.log(spaceId);
+    navigate(`/code/${selectedCodeID}?space=${spaceId}`);
+  };
+
+  const solvedQuestionsNumbers = {
+    Numbers: codeArray.filter(
+      (codeData) => codeData.label === "numbers" && codeData.stars !== -1
+    ).length,
+    Arrays: codeArray.filter(
+      (codeData) => codeData.label === "arrays" && codeData.stars !== -1
+    ).length,
+    LinkedLists: codeArray.filter(
+      (codeData) => codeData.label === "linked_lists" && codeData.stars !== -1
+    ).length,
   };
 
   return (
@@ -82,27 +135,72 @@ const AllCodes = () => {
             src={user.picture}
             alt={user.name}
             style={{
-              width: "40px", 
+              width: "40px",
               height: "40px",
               borderRadius: "50%",
-              marginRight: "8px", 
+              marginRight: "8px",
             }}
           />
           <Text fontWeight="bold">{user.name}</Text>
-          <Icon as={FaSignOutAlt} w={6} h={6} ml={3} onClick={logout}  />
+          <Icon as={FaSignOutAlt} w={6} h={6} ml={3} onClick={logout} />
         </div>
       </div>
 
+      {showSpacesModal && (
+        // Your modal code here
+        <Modal isOpen={showSpacesModal} onClose={closeSpacesModal}>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Spaces for Code</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              {spacesData && spacesData.length != 0 ? (
+                spacesData.map((space) => (
+                  <div key={space._id}>
+                    <Avatar
+                      src={space.profileURL}
+                      name={space.username}
+                      size="md"
+                    />
+                    <p>Username: {space.username}</p>
+                    <Button onClick={() => handleHelp(space.spaceID)}>
+                      Help them
+                    </Button>
+                  </div>
+                ))
+              ) : (
+                <p>No user is currently working on the problem.</p>
+              )}
+            </ModalBody>
+            <ModalFooter>
+              <Button onClick={closeSpacesModal}>Close</Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
+
       <Tabs>
-      <TabList>
+        <TabList>
           <Tab _selected={{ color: "white", bg: "black" }}>
-            Numbers ({solvedQuestionsNumbers.Numbers}/{codeArray.filter((codeData) => codeData.label === "numbers").length})
+            Numbers ({solvedQuestionsNumbers.Numbers}/
+            {
+              codeArray.filter((codeData) => codeData.label === "numbers")
+                .length
+            }
+            )
           </Tab>
           <Tab _selected={{ color: "white", bg: "black" }}>
-            Arrays ({solvedQuestionsNumbers.Arrays}/{codeArray.filter((codeData) => codeData.label === "arrays").length})
+            Arrays ({solvedQuestionsNumbers.Arrays}/
+            {codeArray.filter((codeData) => codeData.label === "arrays").length}
+            )
           </Tab>
           <Tab _selected={{ color: "white", bg: "black" }}>
-            Linked Lists ({solvedQuestionsNumbers.LinkedLists}/{codeArray.filter((codeData) => codeData.label === "linked_lists").length})
+            Linked Lists ({solvedQuestionsNumbers.LinkedLists}/
+            {
+              codeArray.filter((codeData) => codeData.label === "linked_lists")
+                .length
+            }
+            )
           </Tab>
         </TabList>
 
@@ -127,20 +225,24 @@ const AllCodes = () => {
                         <Stars stars={codeData.stars} />
                       </div>
                       <Flex gap={2}>
-                      <Button>Get Live Stats</Button>
-                      <Link to={`/code/${codeData._id}`}>
-                        <Button
-                        _hover={{ bg: "black", color: "white" }}
-                        bgColor="white" 
-                        color="black" 
-                        border="1px solid black"
-                        >Open</Button>
-                      </Link>
+                        <Button onClick={() => getSpacesForCode(codeData._id)}>
+                          Get Live Stats
+                        </Button>
+
+                        <Link to={`/code/${codeData._id}`}>
+                          <Button
+                            _hover={{ bg: "black", color: "white" }}
+                            bgColor="white"
+                            color="black"
+                            border="1px solid black"
+                          >
+                            Open
+                          </Button>
+                        </Link>
                       </Flex>
                     </Box>
                   )
               )}
-             
               more questions coming soon..
             </ol>
           </TabPanel>
@@ -165,11 +267,13 @@ const AllCodes = () => {
                       </div>
                       <Link to={`/code/${codeData._id}`}>
                         <Button
-                         _hover={{ bg: "black", color: "white" }}
-                         bgColor="white" 
-                         color="black" 
-                         border="1px solid black"
-                         >Open</Button>
+                          _hover={{ bg: "black", color: "white" }}
+                          bgColor="white"
+                          color="black"
+                          border="1px solid black"
+                        >
+                          Open
+                        </Button>
                       </Link>
                     </Box>
                   )
