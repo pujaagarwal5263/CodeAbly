@@ -35,7 +35,9 @@ const AllCodes = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth0();
   const [showSpacesModal, setShowSpacesModal] = useState(false);
   const [spacesData, setSpacesData] = useState([]);
-  const [image,setImage] = useState(null);
+  const [image,setImage] = useState(`https://www.gravatar.com/avatar/${hashEmail(
+    "user"
+  )}?d=identicon`);
   const [selectedCodeID, setSelectedCodeID] = useState(null);
 
   const fetchCodes = async () => {
@@ -117,7 +119,12 @@ const AllCodes = () => {
     ).length,
   };
 
+  function hashEmail(email) {
+    const md5 = require("md5");
+    return md5(email.trim().toLowerCase());
+  }
 
+// setImage(user?.picture)
   return (
     <Box marginX={20} marginTop={10}>
       <div

@@ -74,7 +74,7 @@ const CodeEditor = () => {
     participants
       .filter((participant) => participant.name !== localName)
       .forEach((participant) => renderCursor(participant));
-    console.log(participants);
+    // console.log(participants);
   }, [participants]);
 
   useEffect(() => {
@@ -340,6 +340,10 @@ const CodeEditor = () => {
             setUserSet(
               (prevUserSet) => new Set([...prevUserSet, profileData.name])
             );
+            setUserAvatars((prevUserAvatars) => ({
+              ...prevUserAvatars,
+              [profileData.name]: profileData.avatar,
+            }));
           }
         }
       });
@@ -407,14 +411,14 @@ const CodeEditor = () => {
         const { clientX, clientY } = event;
         const currentTime = Date.now();
 
-        if (currentTime - lastUpdateTime >= 10) {
+        // if (currentTime - lastUpdateTime >= 10) {
           space.cursors.set({
             position: { x: clientX, y: clientY },
             data: { color: "red" },
           });
 
           lastUpdateTime = currentTime;
-        }
+        // }
       });
 
       space.cursors.subscribe("update", async (cursorUpdate) => {
