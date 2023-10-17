@@ -35,6 +35,7 @@ const AllCodes = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth0();
   const [showSpacesModal, setShowSpacesModal] = useState(false);
   const [spacesData, setSpacesData] = useState([]);
+  const [image,setImage] = useState(null);
   const [selectedCodeID, setSelectedCodeID] = useState(null);
 
   const fetchCodes = async () => {
@@ -63,6 +64,7 @@ const AllCodes = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      setImage(user.picture)
       await saveUser();
       await fetchCodes();
     };
@@ -114,6 +116,7 @@ const AllCodes = () => {
       (codeData) => codeData.label === "linked_lists" && codeData.stars !== -1
     ).length,
   };
+
 
   return (
     <Box marginX={20} marginTop={10}>
