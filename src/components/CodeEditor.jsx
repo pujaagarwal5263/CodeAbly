@@ -20,6 +20,7 @@ import OpenAI from "openai";
 import Spaces from "@ably/spaces";
 import { Realtime } from "ably";
 import "./CodeEditor.css";
+import soundFile from '../audio/success.mp3';
 
 const extensions = [javascript({ jsx: true })];
 
@@ -99,6 +100,12 @@ const CodeEditor = () => {
   const handleChange = (e) => {
     setCode(e);
   };
+
+  const playSound = () => {
+    const audio = new Audio(soundFile);
+    audio.play();
+  };
+
   const getOutput = async () => {
     setLoading(true);
     try {
@@ -341,6 +348,7 @@ const CodeEditor = () => {
         const { profileData, connectionId } = memberUpdate;
         if (profileData && profileData.name) {
           if (!userSet.has(profileData.name)) {
+            playSound()
             setParticipants((prevParticipants) => {
               if (
                 !prevParticipants.some(
