@@ -37,13 +37,44 @@ const CodeEditor = () => {
   const [isLoading, setLoading] = useState(false);
   const [userSet, setUserSet] = useState(new Set());
   const [userAvatars, setUserAvatars] = useState({});
+  const [participants, setParticipants] = useState([]);
   const [showSpaceItems, setShowSpaceItems] = useState(
-    localStorage.getItem("session") && localStorage.getItem("session") === "true" ? true : false
+    localStorage.getItem("session") &&
+      localStorage.getItem("session") === "true"
+      ? true
+      : false
   );
   useEffect(() => {
-    getAllMembersofChannel();
     allSpaceStuff();
   }, []);
+
+  function renderCursor(participant) {
+    let cursor = document.getElementById(participant.name);
+    if (!cursor) {
+      cursor = document.createElement("div");
+      cursor.id = participant.name;
+      cursor.style.width = "auto";
+      cursor.style.height = "auto";
+      cursor.style.borderRadius = "5px";
+      cursor.style.padding = "5px";
+      cursor.style.backgroundColor = "rgba(255, 0, 0, 0.7)";
+      cursor.style.color = "#fff";
+      cursor.style.fontFamily = "Arial, sans-serif";
+      cursor.style.position = "absolute";
+      document.body.appendChild(cursor);
+    }
+
+    cursor.innerHTML = participant.name;
+    cursor.style.left = `${participant.x}px`;
+    cursor.style.top = `${participant.y}px`;
+  }
+
+  useEffect(() => {
+    participants
+      .filter((participant) => participant.name !== localName)
+      .forEach((participant) => renderCursor(participant));
+    console.log(participants);
+  }, [participants]);
 
   useEffect(() => {
     if (localStorage.getItem("session") === "false") {
@@ -64,6 +95,7 @@ const CodeEditor = () => {
       });
   }, [id]);
 
+  const localName = localStorage.getItem("name");
   const handleChange = (e) => {
     setCode(e);
   };
@@ -114,7 +146,7 @@ const CodeEditor = () => {
       const codeID = id;
       const username = localStorage.getItem("name");
       const profileURL = localStorage.getItem("picture");
-      localStorage.setItem("session",true);
+      localStorage.setItem("session", true);
 
       // Make a POST request to the backend
       const response = await axios.post(
@@ -143,9 +175,9 @@ const CodeEditor = () => {
   };
 
   const terminateSession = async () => {
-    localStorage.setItem("session",false)
-    setShowSpaceItems(false)
-    
+    localStorage.setItem("session", false);
+    setShowSpaceItems(false);
+
     const currentURL = new URL(window.location.href);
     const spaceId = currentURL.searchParams.get("space");
 
@@ -275,11 +307,60 @@ const CodeEditor = () => {
       });
 
       const allMembers = await space.members.getAll();
-
-      space.members.subscribe("enter", (memberUpdate) => {
-        const { profileData } = memberUpdate;
+      allMembers.forEach((member) => {
+        const { profileData, connectionId } = member;
         if (profileData && profileData.name) {
           if (!userSet.has(profileData.name)) {
+            setParticipants((prevParticipants) => {
+              if (
+                !prevParticipants.some(
+                  (participant) => participant.name === profileData.name
+                )
+              ) {
+                return [
+                  ...prevParticipants,
+                  {
+                    name: profileData.name,
+                    connectionId: connectionId,
+                    avatar: profileData.avatar,
+                    x: null,
+                    y: null,
+                  },
+                ];
+              }
+              return prevParticipants; // No need to insert if the name already exists
+            });
+            setUserSet(
+              (prevUserSet) => new Set([...prevUserSet, profileData.name])
+            );
+          }
+        }
+      });
+
+      space.members.subscribe("enter", async (memberUpdate) => {
+        const { profileData, connectionId } = memberUpdate;
+        if (profileData && profileData.name) {
+          if (!userSet.has(profileData.name)) {
+            setParticipants((prevParticipants) => {
+              if (
+                !prevParticipants.some(
+                  (participant) => participant.name === profileData.name
+                )
+              ) {
+                return [
+                  ...prevParticipants,
+                  {
+                    name: profileData.name,
+                    connectionId: connectionId,
+                    avatar: profileData.avatar,
+                    x: null,
+                    y: null,
+                  },
+                ];
+              }
+              return prevParticipants; // No need to insert if the name already exists
+            });
+
             setUserSet(
               (prevUserSet) => new Set([...prevUserSet, profileData.name])
             );
@@ -292,10 +373,13 @@ const CodeEditor = () => {
       });
 
       space.members.subscribe("leave", (memberUpdate) => {
-        // console.log(memberUpdate, "leave ----");
-
-        const { profileData } = memberUpdate;
+        const { profileData, connectionId } = memberUpdate;
         if (profileData && profileData.name) {
+          setParticipants((prevParticipants) =>
+            prevParticipants.filter(
+              (participant) => participant.connectionId !== connectionId
+            )
+          );
           setUserSet((prevUserSet) => {
             const newUserSet = new Set(prevUserSet);
             newUserSet.delete(profileData.name);
@@ -308,36 +392,59 @@ const CodeEditor = () => {
           });
         }
       });
-    } else {
-      console.log("No 'space' parameter found in the URL.");
-    }
-  };
 
-  const getAllMembersofChannel = async () => {
-    if (spaceName) {
-      const client = new Realtime.Promise({
-        key: process.env.REACT_APP_ABLY_KEY,
-        clientId: process.env.REACT_APP_ABLY_CLIENDID,
-      });
+      let lastUpdateTime = 0;
 
-      const spaces = new Spaces(client);
+      window.addEventListener("mousemove", (event) => {
+        const { clientX, clientY } = event;
+        const currentTime = Date.now();
 
-      const space = await spaces.get(spaceName, {
-        offlineTimeout: 180_000,
-      });
+        if (currentTime - lastUpdateTime >= 10) {
+          space.cursors.set({
+            position: { x: clientX, y: clientY },
+            data: { color: "red" },
+          });
 
-      const allMembers = await space.members.getAll();
-
-      allMembers.forEach((member) => {
-        const { profileData } = member;
-        if (profileData && profileData.name) {
-          if (!userSet.has(profileData.name)) {
-            setUserSet(
-              (prevUserSet) => new Set([...prevUserSet, profileData.name])
-            );
-          }
+          lastUpdateTime = currentTime;
         }
       });
+
+      space.cursors.subscribe("update", async (cursorUpdate) => {
+        const { connectionId, data, position } = cursorUpdate;
+
+        setParticipants((prevParticipants) => {
+          const existingParticipantIndex = prevParticipants.findIndex(
+            (participant) => participant.connectionId === connectionId
+          );
+
+          if (existingParticipantIndex !== -1) {
+            const updatedParticipants = [...prevParticipants];
+            const existingParticipant =
+              updatedParticipants[existingParticipantIndex];
+
+            if (
+              typeof position.x === "number" &&
+              typeof position.y === "number" &&
+              existingParticipant.connectionId === connectionId
+            ) {
+              existingParticipant.x = position.x;
+              existingParticipant.y = position.y;
+            }
+
+            if (data) {
+              existingParticipant.name = data.name || existingParticipant.name;
+              existingParticipant.avatar =
+                data.avatar || existingParticipant.avatar;
+            }
+
+            return updatedParticipants;
+          }
+
+          return prevParticipants;
+        });
+      });
+    } else {
+      console.log("No 'space' parameter found in the URL.");
     }
   };
 
