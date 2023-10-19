@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { javascript } from "@codemirror/lang-javascript";
 import { okaidia } from "@uiw/codemirror-theme-okaidia";
@@ -20,6 +20,7 @@ import OpenAI from "openai";
 import Spaces from "@ably/spaces";
 import { Realtime } from "ably";
 import "./CodeEditor.css";
+import soundFile from "../audio/success.mp3";
 
 const extensions = [javascript({ jsx: true })];
 
@@ -38,12 +39,14 @@ const CodeEditor = () => {
   const [userSet, setUserSet] = useState(new Set());
   const [userAvatars, setUserAvatars] = useState({});
   const [participants, setParticipants] = useState([]);
+  const [currentLine, setCurrentLine] = useState(0);
   const [showSpaceItems, setShowSpaceItems] = useState(
     localStorage.getItem("session") &&
       localStorage.getItem("session") === "true"
       ? true
       : false
   );
+  const currentLineRef = useRef(currentLine);
   useEffect(() => {
     allSpaceStuff();
   }, []);
@@ -73,7 +76,7 @@ const CodeEditor = () => {
     participants
       .filter((participant) => participant.name !== localName)
       .forEach((participant) => renderCursor(participant));
-    console.log(participants);
+    // console.log(participants);
   }, [participants]);
 
   useEffect(() => {
@@ -96,9 +99,34 @@ const CodeEditor = () => {
   }, [id]);
 
   const localName = localStorage.getItem("name");
-  const handleChange = (e) => {
-    setCode(e);
+  // const handleChange = (e) => {
+  //   setCode(e);
+  // };
+  const handleChange = (newCode) => {
+    setCode(newCode);
+    const lines = newCode.split("\n");
+    let cursorPosition = code
+      .split("\n")
+      .slice(0, lines.length - 1)
+      .join("\n").length;
+    let line = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineLength = lines[i].length + 1; // Add 1 for the newline character
+      if (cursorPosition < lineLength) {
+        line = i;
+        break;
+      }
+      cursorPosition -= lineLength;
+    }
+    setCurrentLine(line + 1); // +1 because line numbers are typically 1-based
   };
+
+  const playSound = () => {
+    const audio = new Audio(soundFile);
+    audio.play();
+  };
+
   const getOutput = async () => {
     setLoading(true);
     try {
@@ -333,6 +361,10 @@ const CodeEditor = () => {
             setUserSet(
               (prevUserSet) => new Set([...prevUserSet, profileData.name])
             );
+            setUserAvatars((prevUserAvatars) => ({
+              ...prevUserAvatars,
+              [profileData.name]: profileData.avatar,
+            }));
           }
         }
       });
@@ -341,6 +373,7 @@ const CodeEditor = () => {
         const { profileData, connectionId } = memberUpdate;
         if (profileData && profileData.name) {
           if (!userSet.has(profileData.name)) {
+            playSound();
             setParticipants((prevParticipants) => {
               if (
                 !prevParticipants.some(
@@ -393,20 +426,20 @@ const CodeEditor = () => {
         }
       });
 
-      let lastUpdateTime = 0;
+      //let lastUpdateTime = 0;
 
       window.addEventListener("mousemove", (event) => {
         const { clientX, clientY } = event;
-        const currentTime = Date.now();
+        // const currentTime = Date.now();
 
-        if (currentTime - lastUpdateTime >= 10) {
-          space.cursors.set({
-            position: { x: clientX, y: clientY },
-            data: { color: "red" },
-          });
+        // if (currentTime - lastUpdateTime >= 10) {
+        space.cursors.set({
+          position: { x: clientX, y: clientY },
+          data: { color: "red" },
+        });
 
-          lastUpdateTime = currentTime;
-        }
+        //lastUpdateTime = currentTime;
+        // }
       });
 
       space.cursors.subscribe("update", async (cursorUpdate) => {
@@ -443,6 +476,21 @@ const CodeEditor = () => {
           return prevParticipants;
         });
       });
+
+      const editorId = "my-code-mirror";
+      const editorElement = document.querySelector("#" + editorId);
+
+      editorElement.addEventListener("input", function (event) {
+        space.locations.set({ slide: currentLineRef.current });
+      });
+
+      space.locations.subscribe(
+        "update",
+        ({ member, currentLocation, previousLocation }) => {
+          console.log(currentLocation);
+          //updateLocationsForMember(member, currentLocation, previousLocation);
+        }
+      );
     } else {
       console.log("No 'space' parameter found in the URL.");
     }
@@ -490,6 +538,7 @@ const CodeEditor = () => {
       <br></br>
       <div style={{ display: "flex", gap: "30px" }}>
         <CodeMirror
+          id="my-code-mirror"
           value={code}
           height="80vh"
           width="80vh"
