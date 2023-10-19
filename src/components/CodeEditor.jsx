@@ -39,6 +39,7 @@ const CodeEditor = () => {
   const [userSet, setUserSet] = useState(new Set());
   const [userAvatars, setUserAvatars] = useState({});
   const [participants, setParticipants] = useState([]);
+  const [currentLine, setCurrentLine] = useState(0);
   const [showSpaceItems, setShowSpaceItems] = useState(
     localStorage.getItem("session") &&
       localStorage.getItem("session") === "true"
@@ -48,6 +49,10 @@ const CodeEditor = () => {
   useEffect(() => {
     allSpaceStuff();
   }, []);
+
+  useEffect(()=>{
+    console.log("CL---",currentLine);
+  },[currentLine])
 
   function renderCursor(participant) {
     let cursor = document.getElementById(participant.name);
@@ -97,8 +102,24 @@ const CodeEditor = () => {
   }, [id]);
 
   const localName = localStorage.getItem("name");
-  const handleChange = (e) => {
-    setCode(e);
+  // const handleChange = (e) => {
+  //   setCode(e);
+  // };
+  const handleChange = (newCode) => {
+    setCode(newCode);
+    const lines = newCode.split('\n');
+    let cursorPosition = code.split('\n').slice(0, lines.length - 1).join('\n').length;
+    let line = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const lineLength = lines[i].length + 1; // Add 1 for the newline character
+      if (cursorPosition < lineLength) {
+        line = i;
+        break;
+      }
+      cursorPosition -= lineLength;
+    }
+    setCurrentLine(line+1); // +1 because line numbers are typically 1-based
   };
 
   const playSound = () => {
