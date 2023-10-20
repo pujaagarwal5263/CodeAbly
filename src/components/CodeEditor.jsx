@@ -121,9 +121,12 @@ const CodeEditor = () => {
       }
 
       const targetLine = lineElements[adjustedLineNumber];
-      targetLine.style.backgroundColor = "red";
+      if(targetLine){
+        targetLine.style.backgroundColor = "red";
+        previousTargetLine = targetLine;
 
-      previousTargetLine = targetLine;
+      }
+
     }
   }
 
