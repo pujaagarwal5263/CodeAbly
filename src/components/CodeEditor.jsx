@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useChannel } from "ably/react";
 import CodeMirror from "@uiw/react-codemirror";
 import { javascript } from "@codemirror/lang-javascript";
 import { okaidia } from "@uiw/codemirror-theme-okaidia";
 import axios from "axios";
 import { useParams } from "react-router-dom";
-import { Button } from "@chakra-ui/react";
+import { Button, space } from "@chakra-ui/react";
 import {
   Modal,
   ModalOverlay,
@@ -40,6 +41,7 @@ const CodeEditor = () => {
   const [userAvatars, setUserAvatars] = useState({});
   const [participants, setParticipants] = useState([]);
   const [currentLine, setCurrentLine] = useState(0);
+  // const [locRecieve,setLocReceive] = useState(false);
   const [showSpaceItems, setShowSpaceItems] = useState(
     localStorage.getItem("session") &&
       localStorage.getItem("session") === "true"
@@ -47,6 +49,13 @@ const CodeEditor = () => {
       : false
   );
   const currentLineRef = useRef(currentLine);
+  const { channel, ably } = useChannel("chat-message", (message) => {
+    const isMyMessage = message.connectionId === ably.connection.id;
+    if (!isMyMessage) {
+      setCode(message.data);
+    }
+  });
+
   useEffect(() => {
     allSpaceStuff();
   }, []);
@@ -72,11 +81,60 @@ const CodeEditor = () => {
     cursor.style.top = `${participant.y}px`;
   }
 
+  // function updateLineMarker(participant) {
+  //   const targetLineNumber = participant.location;
+  //   const lineElements = document.getElementsByClassName("cm-line");
+  //   const adjustedLineNumber = targetLineNumber - 1;
+
+  //   while (adjustedLineNumber >= lineElements.length) {
+  //     const newLineElement = document.createElement("div");
+  //     newLineElement.className = "cm-line";
+  //     document.body.appendChild(newLineElement);
+  //   }
+
+  //   if (adjustedLineNumber >= 0 && adjustedLineNumber < lineElements.length) {
+  //     const targetLine = lineElements[adjustedLineNumber];
+  //     targetLine.style.backgroundColor = "red";
+  //   }
+  // }
+
+  let previousTargetLine = null; // Track the previously colored line element
+
+  function updateLineMarker(participant) {
+    const targetLineNumber = participant.location;
+    const lineElements = document.getElementsByClassName("cm-line");
+    let adjustedLineNumber;
+    if (targetLineNumber == 0 || targetLineNumber == 1) {
+      adjustedLineNumber = 1;
+    } else {
+      adjustedLineNumber = targetLineNumber;
+    }
+    while (adjustedLineNumber >= lineElements.length) {
+      const newLineElement = document.createElement("div");
+      newLineElement.className = "cm-line";
+      document.body.appendChild(newLineElement);
+    }
+
+    if (adjustedLineNumber >= 0 && adjustedLineNumber < lineElements.length) {
+      if (previousTargetLine !== null) {
+        previousTargetLine.style.backgroundColor = ""; 
+      }
+
+      const targetLine = lineElements[adjustedLineNumber];
+      targetLine.style.backgroundColor = "red";
+
+      previousTargetLine = targetLine;
+    }
+  }
+
   useEffect(() => {
     participants
       .filter((participant) => participant.name !== localName)
-      .forEach((participant) => renderCursor(participant));
-    // console.log(participants);
+      .forEach((participant) => {
+        updateLineMarker(participant);
+        renderCursor(participant);
+      });
+    //console.log(participants);
   }, [participants]);
 
   useEffect(() => {
@@ -99,11 +157,9 @@ const CodeEditor = () => {
   }, [id]);
 
   const localName = localStorage.getItem("name");
-  // const handleChange = (e) => {
-  //   setCode(e);
-  // };
   const handleChange = (newCode) => {
     setCode(newCode);
+    channel.publish({ name: "chat-message", data: newCode });
     const lines = newCode.split("\n");
     let cursorPosition = code
       .split("\n")
@@ -119,7 +175,8 @@ const CodeEditor = () => {
       }
       cursorPosition -= lineLength;
     }
-    setCurrentLine(line + 1); // +1 because line numbers are typically 1-based
+    currentLineRef.current = line + 1;
+    //setCurrentLine(line + 1); // +1 because line numbers are typically 1-based
   };
 
   const playSound = () => {
@@ -353,6 +410,7 @@ const CodeEditor = () => {
                     avatar: profileData.avatar,
                     x: null,
                     y: null,
+                    location: null,
                   },
                 ];
               }
@@ -388,6 +446,7 @@ const CodeEditor = () => {
                     avatar: profileData.avatar,
                     x: null,
                     y: null,
+                    location: null,
                   },
                 ];
               }
@@ -481,14 +540,41 @@ const CodeEditor = () => {
       const editorElement = document.querySelector("#" + editorId);
 
       editorElement.addEventListener("input", function (event) {
+        console.log(currentLineRef.current);
         space.locations.set({ slide: currentLineRef.current });
       });
 
       space.locations.subscribe(
         "update",
         ({ member, currentLocation, previousLocation }) => {
-          console.log(currentLocation);
-          //updateLocationsForMember(member, currentLocation, previousLocation);
+          const { connectionId, profileData, location } = member;
+
+          setParticipants((prevParticipants) => {
+            const existingParticipantIndex = prevParticipants.findIndex(
+              (participant) => participant.name === profileData.name
+            );
+
+            if (existingParticipantIndex !== -1) {
+              const updatedParticipants = [...prevParticipants];
+              const existingParticipant =
+                updatedParticipants[existingParticipantIndex];
+
+              existingParticipant.location = location.slide;
+
+              if (profileData) {
+                existingParticipant.name = profileData.name || profileData.name;
+                existingParticipant.avatar =
+                  profileData.avatar || existingParticipant.avatar;
+              }
+
+              // console.log("existingParticipant",existingParticipant);
+              return updatedParticipants;
+            }
+
+            return prevParticipants;
+          });
+
+          // updateLineMarker(participants);
         }
       );
     } else {
@@ -546,6 +632,11 @@ const CodeEditor = () => {
           extensions={[javascript({ jsx: true })]}
           onChange={handleChange}
           style={{ fontSize: "16px" }}
+          options={{
+            gutters: ["participantsCursor"],
+            lineNumbers: true,
+            rulers: [{ column: 80, color: "red", lineStyle: "dashed" }],
+          }}
         />
         <div>
           {codeDetails ? (

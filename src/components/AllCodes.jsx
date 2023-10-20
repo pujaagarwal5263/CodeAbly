@@ -275,6 +275,10 @@ const AllCodes = () => {
                         <h3>{codeData.question}</h3>
                         <Stars stars={codeData.stars} />
                       </div>
+                      <Flex gap={2}>
+                      <Button onClick={() => getSpacesForCode(codeData._id)}>
+                          Get Live Stats
+                        </Button>
                       <Link to={`/code/${codeData._id}`}>
                         <Button
                           _hover={{ bg: "black", color: "white" }}
@@ -285,6 +289,7 @@ const AllCodes = () => {
                           Open
                         </Button>
                       </Link>
+                      </Flex>
                     </Box>
                   )
               )}
