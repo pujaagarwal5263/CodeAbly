@@ -22,6 +22,7 @@ import Spaces from "@ably/spaces";
 import { Realtime } from "ably";
 import "./CodeEditor.css";
 import soundFile from "../audio/success.mp3";
+import VideoCall from "./VideoCall";
 
 const extensions = [javascript({ jsx: true })];
 
@@ -41,7 +42,7 @@ const CodeEditor = () => {
   const [userAvatars, setUserAvatars] = useState({});
   const [participants, setParticipants] = useState([]);
   const [currentLine, setCurrentLine] = useState(0);
-  // const [locRecieve,setLocReceive] = useState(false);
+  const [roomID, setRoomID] = useState("");
   const [showSpaceItems, setShowSpaceItems] = useState(
     localStorage.getItem("session") &&
       localStorage.getItem("session") === "true"
@@ -81,24 +82,8 @@ const CodeEditor = () => {
     cursor.style.top = `${participant.y}px`;
   }
 
-  // function updateLineMarker(participant) {
-  //   const targetLineNumber = participant.location;
-  //   const lineElements = document.getElementsByClassName("cm-line");
-  //   const adjustedLineNumber = targetLineNumber - 1;
 
-  //   while (adjustedLineNumber >= lineElements.length) {
-  //     const newLineElement = document.createElement("div");
-  //     newLineElement.className = "cm-line";
-  //     document.body.appendChild(newLineElement);
-  //   }
-
-  //   if (adjustedLineNumber >= 0 && adjustedLineNumber < lineElements.length) {
-  //     const targetLine = lineElements[adjustedLineNumber];
-  //     targetLine.style.backgroundColor = "red";
-  //   }
-  // }
-
-  let previousTargetLine = null; // Track the previously colored line element
+  let previousTargetLine = null; 
 
   function updateLineMarker(participant) {
     const targetLineNumber = participant.location;
@@ -117,16 +102,14 @@ const CodeEditor = () => {
 
     if (adjustedLineNumber >= 0 && adjustedLineNumber < lineElements.length) {
       if (previousTargetLine !== null) {
-        previousTargetLine.style.backgroundColor = ""; 
+        previousTargetLine.style.backgroundColor = "";
       }
 
       const targetLine = lineElements[adjustedLineNumber];
-      if(targetLine){
+      if (targetLine) {
         targetLine.style.backgroundColor = "green";
         previousTargetLine = targetLine;
-
       }
-
     }
   }
 
@@ -136,8 +119,9 @@ const CodeEditor = () => {
       .forEach((participant) => {
         updateLineMarker(participant);
         renderCursor(participant);
+        //add a function for showing locks in UI
       });
-    //console.log(participants);
+   // console.log(participants);
   }, [participants]);
 
   useEffect(() => {
@@ -147,7 +131,6 @@ const CodeEditor = () => {
   }, [localStorage.getItem("session")]);
 
   useEffect(() => {
-    // Make an API request to fetch code details by ID
     axios
       .get(`${process.env.REACT_APP_BACKEND_URL}/code/${id}`)
       .then((response) => {
@@ -171,7 +154,7 @@ const CodeEditor = () => {
     let line = 0;
 
     for (let i = 0; i < lines.length; i++) {
-      const lineLength = lines[i].length + 1; // Add 1 for the newline character
+      const lineLength = lines[i].length + 1;
       if (cursorPosition < lineLength) {
         line = i;
         break;
@@ -179,7 +162,6 @@ const CodeEditor = () => {
       cursorPosition -= lineLength;
     }
     currentLineRef.current = line + 1;
-    //setCurrentLine(line + 1); // +1 because line numbers are typically 1-based
   };
 
   const playSound = () => {
@@ -247,7 +229,6 @@ const CodeEditor = () => {
         }
       );
 
-      // Handle the response, e.g., display a success message or perform any necessary actions
       console.log("Space registered successfully:", response.data);
 
       // Redirect to the updated URL with the space ID
@@ -364,7 +345,6 @@ const CodeEditor = () => {
         ],
         model: "gpt-3.5-turbo",
       });
-      //console.log(chatCompletion.choices[0].message.content);
       setAIResponse(chatCompletion.choices[0].message.content);
     } catch (err) {
       console.log(err);
@@ -379,6 +359,30 @@ const CodeEditor = () => {
 
   const allSpaceStuff = async () => {
     if (spaceName) {
+      const requestBody = JSON.stringify({ spaceID: spaceName });
+      console.log(spaceName);
+      try {
+        const response = await fetch(
+          `${process.env.REACT_APP_BACKEND_URL}/getroomidfromspace`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: requestBody,
+          }
+        );
+        console.log("responseeee", response);
+        if (response.ok) {
+          const data = await response.json();
+          setRoomID(data.roomID);
+        } else {
+          console.log("room not found");
+        }
+      } catch (error) {
+        console.log(error);
+      }
+
       const client = new Realtime.Promise({
         key: process.env.REACT_APP_ABLY_KEY,
         clientId: process.env.REACT_APP_ABLY_CLIENDID,
@@ -414,10 +418,11 @@ const CodeEditor = () => {
                     x: null,
                     y: null,
                     location: null,
+                    lock: null
                   },
                 ];
               }
-              return prevParticipants; // No need to insert if the name already exists
+              return prevParticipants; 
             });
             setUserSet(
               (prevUserSet) => new Set([...prevUserSet, profileData.name])
@@ -450,6 +455,7 @@ const CodeEditor = () => {
                     x: null,
                     y: null,
                     location: null,
+                    lock: null
                   },
                 ];
               }
@@ -542,9 +548,16 @@ const CodeEditor = () => {
       const editorId = "my-code-mirror";
       const editorElement = document.querySelector("#" + editorId);
 
-      editorElement.addEventListener("input", function (event) {
+      editorElement.addEventListener("input", async function (event) {
         console.log(currentLineRef.current);
         space.locations.set({ slide: currentLineRef.current });
+        if(space.locks.get(currentLineRef.current)){
+          console.log("already locked");
+        }else{
+          await space.locks.release(currentLineRef.current-1);
+          await space.locks.acquire(currentLineRef.current);
+        }
+        console.log("hiii from lock");
       });
 
       space.locations.subscribe(
@@ -570,16 +583,36 @@ const CodeEditor = () => {
                   profileData.avatar || existingParticipant.avatar;
               }
 
-              // console.log("existingParticipant",existingParticipant);
               return updatedParticipants;
             }
 
             return prevParticipants;
           });
 
-          // updateLineMarker(participants);
         }
       );
+
+      space.locks.subscribe('update', (lock) => {
+        const {id, status, member} = lock;
+        if(status=='locked'){
+          setParticipants((prevParticipants) => {
+            const existingParticipantIndex = prevParticipants.findIndex(
+              (participant) => participant.name === member.profileData.name
+            );
+
+            if (existingParticipantIndex !== -1) {
+              const updatedParticipants = [...prevParticipants];
+              const existingParticipant =
+                updatedParticipants[existingParticipantIndex];
+              existingParticipant.lock = id;
+
+              return updatedParticipants;
+            }
+            return prevParticipants;
+          });
+          
+        }
+      });
     } else {
       console.log("No 'space' parameter found in the URL.");
     }
@@ -611,7 +644,7 @@ const CodeEditor = () => {
           </div>
         ))}
       </Flex>
-
+      <VideoCall roomID={roomID} />
       <Flex>
         {testCases?.map((testCase, i) => (
           <Box
@@ -662,8 +695,8 @@ const CodeEditor = () => {
                 <Button
                   onClick={getSolution}
                   _hover={{ bg: "black", color: "white" }}
-                  bgColor="white" // Set background color to black
-                  color="black" // Set text color to white
+                  bgColor="white" 
+                  color="black" 
                   border="1px solid black"
                 >
                   Get Solution 👩‍💻
