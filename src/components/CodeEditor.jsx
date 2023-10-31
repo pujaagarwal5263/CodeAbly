@@ -113,12 +113,42 @@ const CodeEditor = () => {
     }
   }
 
+  function lockLine(participant) {
+    const targetLineNumber = participant.location;
+    const lineElements = document.getElementsByClassName("cm-line");
+    let adjustedLineNumber;
+    if (targetLineNumber == 0 || targetLineNumber == 1) {
+      adjustedLineNumber = 1;
+    } else {
+      adjustedLineNumber = targetLineNumber;
+    }
+    while (adjustedLineNumber >= lineElements.length) {
+      const newLineElement = document.createElement("div");
+      newLineElement.className = "cm-line";
+      document.body.appendChild(newLineElement);
+    }
+
+    if (adjustedLineNumber >= 0 && adjustedLineNumber < lineElements.length) {
+      if (previousTargetLine !== null) {
+        previousTargetLine.style.backgroundColor = "";
+      }
+
+      const targetLine = lineElements[adjustedLineNumber];
+      if (targetLine) {
+        targetLine.style.backgroundColor = "green";
+        targetLine.style.cursor = "not-allowed";
+        previousTargetLine = targetLine;
+      }
+    }
+  }
+
   useEffect(() => {
     participants
       .filter((participant) => participant.name !== localName)
       .forEach((participant) => {
         updateLineMarker(participant);
         renderCursor(participant);
+        lockLine(participant);
         //add a function for showing locks in UI
       });
    // console.log(participants);
@@ -644,7 +674,9 @@ const CodeEditor = () => {
           </div>
         ))}
       </Flex>
-      <VideoCall roomID={roomID} />
+      <div style={{ position: "absolute", bottom: 5, right: 5 }}>
+    <VideoCall roomID={roomID} />
+  </div>
       <Flex>
         {testCases?.map((testCase, i) => (
           <Box

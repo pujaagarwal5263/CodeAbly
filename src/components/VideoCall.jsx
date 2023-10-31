@@ -6,6 +6,7 @@ import {
   useParticipant,
 } from "@videosdk.live/react-sdk";
 import ReactPlayer from "react-player";
+import { Button } from "@chakra-ui/react";
 
 function JoinScreen({ getMeetingAndToken }) {
   const [meetingId, setMeetingId] = useState(null);
@@ -62,7 +63,7 @@ function ParticipantView(props) {
   return (
     <div key={props.participantId}>
       <p>
-        Participant: {displayName} | Webcam: {webcamOn ? "ON" : "OFF"} | Mic:{" "}
+        {displayName} | Webcam: {webcamOn ? "ON" : "OFF"} | Mic:{" "}
         {micOn ? "ON" : "OFF"}
       </p>
       <audio ref={micRef} autoPlay muted={isLocal} />
@@ -92,10 +93,10 @@ function ParticipantView(props) {
 function Controls() {
   const { leave, toggleMic, toggleWebcam } = useMeeting();
   return (
-    <div>
-      <button onClick={() => leave()}>Leave</button>
-      <button onClick={() => toggleMic()}>toggleMic</button>
-      <button onClick={() => toggleWebcam()}>toggleWebcam</button>
+    <div style={{display:"flex",gap:"5px"}}>
+      <Button colorScheme="red" onClick={() => leave()}>Leave</Button>
+      <Button colorScheme="green" onClick={() => toggleMic()}>toggleMic</Button>
+      <Button colorScheme="teal" onClick={() => toggleWebcam()}>toggleWebcam</Button>
     </div>
   );
 }
@@ -118,21 +119,23 @@ function MeetingView(props) {
 
   return (
     <div className="container">
-      <h3>Meeting Id: {props.meetingId}</h3>
+      {/* <h3>Meeting Id: {props.meetingId}</h3> */}
       {joined && joined == "JOINED" ? (
         <div>
           <Controls />
+          <div style={{display:"flex", gap:"10px"}}>
           {[...participants.keys()].map((participantId) => (
             <ParticipantView
               participantId={participantId}
               key={participantId}
             />
           ))}
+          </div>
         </div>
       ) : joined && joined == "JOINING" ? (
         <p>Joining the meeting...</p>
       ) : (
-        <button onClick={joinMeeting}>Join</button>
+        <Button colorScheme="teal" onClick={joinMeeting}>Start the VideoCall</Button>
       )}
     </div>
   );
