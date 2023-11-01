@@ -82,8 +82,7 @@ const CodeEditor = () => {
     cursor.style.top = `${participant.y}px`;
   }
 
-
-  let previousTargetLine = null; 
+  let previousTargetLine = null;
 
   function updateLineMarker(participant) {
     const targetLineNumber = participant.location;
@@ -151,7 +150,7 @@ const CodeEditor = () => {
         lockLine(participant);
         //add a function for showing locks in UI
       });
-   // console.log(participants);
+    // console.log(participants);
   }, [participants]);
 
   useEffect(() => {
@@ -448,11 +447,11 @@ const CodeEditor = () => {
                     x: null,
                     y: null,
                     location: null,
-                    lock: null
+                    lock: null,
                   },
                 ];
               }
-              return prevParticipants; 
+              return prevParticipants;
             });
             setUserSet(
               (prevUserSet) => new Set([...prevUserSet, profileData.name])
@@ -485,7 +484,7 @@ const CodeEditor = () => {
                     x: null,
                     y: null,
                     location: null,
-                    lock: null
+                    lock: null,
                   },
                 ];
               }
@@ -581,10 +580,10 @@ const CodeEditor = () => {
       editorElement.addEventListener("input", async function (event) {
         console.log(currentLineRef.current);
         space.locations.set({ slide: currentLineRef.current });
-        if(space.locks.get(currentLineRef.current)){
+        if (space.locks.get(currentLineRef.current)) {
           console.log("already locked");
-        }else{
-          await space.locks.release(currentLineRef.current-1);
+        } else {
+          await space.locks.release(currentLineRef.current - 1);
           await space.locks.acquire(currentLineRef.current);
         }
         console.log("hiii from lock");
@@ -618,13 +617,12 @@ const CodeEditor = () => {
 
             return prevParticipants;
           });
-
         }
       );
 
-      space.locks.subscribe('update', (lock) => {
-        const {id, status, member} = lock;
-        if(status=='locked'){
+      space.locks.subscribe("update", (lock) => {
+        const { id, status, member } = lock;
+        if (status == "locked") {
           setParticipants((prevParticipants) => {
             const existingParticipantIndex = prevParticipants.findIndex(
               (participant) => participant.name === member.profileData.name
@@ -640,7 +638,6 @@ const CodeEditor = () => {
             }
             return prevParticipants;
           });
-          
         }
       });
     } else {
@@ -674,9 +671,13 @@ const CodeEditor = () => {
           </div>
         ))}
       </Flex>
-      <div style={{ position: "absolute", bottom: 5, right: 5 }} visibility={showSpaceItems ? "visible" : "hidden"}>
-    <VideoCall roomID={roomID} />
-  </div>
+      {showSpaceItems ? (
+        <div style={{ position: "absolute", bottom: 5, right: 5 }}>
+          <VideoCall roomID={roomID} />
+        </div>
+      ) : (
+        <></>
+      )}
       <Flex>
         {testCases?.map((testCase, i) => (
           <Box
@@ -727,8 +728,8 @@ const CodeEditor = () => {
                 <Button
                   onClick={getSolution}
                   _hover={{ bg: "black", color: "white" }}
-                  bgColor="white" 
-                  color="black" 
+                  bgColor="white"
+                  color="black"
                   border="1px solid black"
                 >
                   Get Solution 👩‍💻
