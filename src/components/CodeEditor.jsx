@@ -671,7 +671,7 @@ const CodeEditor = () => {
           </div>
         ))}
       </Flex>
-      {showSpaceItems ? (
+      {spaceName ? (
         <div style={{ position: "absolute", bottom: 5, right: 5 }}>
           <VideoCall roomID={roomID} />
         </div>
