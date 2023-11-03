@@ -63,7 +63,9 @@ const CodeEditor = () => {
   const { channel, ably } = useChannel("chat-message", (message) => {
     const isMyMessage = message.connectionId === ably.connection.id;
     if (!isMyMessage) {
-      setCode(message.data);
+      if(message.data != "video-request"){
+        setCode(message.data);
+      }
     }
   });
 
@@ -716,7 +718,7 @@ const CodeEditor = () => {
         <div style={{ position: "absolute", bottom: 5, right: 5, display: "flex", gap: "5px" }}>
           <VideoCall roomID={roomID} />
           <Button onClick={()=> {
-            channel.publish({ name: "video-request", data: "connect for a call" });
+            channel.publish({ name: "video-request", data: "video-request" });
           }}>Request for Video Call</Button>
         </div>
       ) : (
