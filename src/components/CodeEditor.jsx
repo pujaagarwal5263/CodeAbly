@@ -43,12 +43,19 @@ const CodeEditor = () => {
   const [participants, setParticipants] = useState([]);
   const [currentLine, setCurrentLine] = useState(0);
   const [roomID, setRoomID] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [showSpaceItems, setShowSpaceItems] = useState(
     localStorage.getItem("session") &&
       localStorage.getItem("session") === "true"
       ? true
       : false
   );
+  const openModal = () => {
+    setIsModalOpen(true);
+  };
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
   const currentLineRef = useRef(currentLine);
   const { channel, ably } = useChannel("chat-message", (message) => {
     const isMyMessage = message.connectionId === ably.connection.id;
@@ -388,6 +395,17 @@ const CodeEditor = () => {
 
   const allSpaceStuff = async () => {
     if (spaceName) {
+      const localStorageName = localStorage.getItem("name");
+      if (!localStorageName) {
+        const userName = prompt("Please enter your name:");
+        if (userName) {
+          localStorage.setItem("name", userName);
+          localStorage.setItem(
+            "picture",
+            `https://www.gravatar.com/avatar/${hashEmail(userName)}?d=identicon`
+          );
+        }
+      }
       const requestBody = JSON.stringify({ spaceID: spaceName });
       console.log(spaceName);
       try {
@@ -749,6 +767,43 @@ const CodeEditor = () => {
                 >
                   Terminate session
                 </Button>
+                <Button
+                  visibility={showSpaceItems ? "visible" : "hidden"}
+                  onClick={openModal}
+                >
+                  Share Space Link
+                </Button>
+                <Modal
+                  isOpen={isModalOpen}
+                  onClose={() => setIsModalOpen(false)}
+                  contentLabel="Share Space Link Modal"
+                >
+                  <ModalOverlay />
+                  <ModalContent>
+                    <ModalHeader>Share Space Link</ModalHeader>
+                    <ModalCloseButton />
+                    <ModalBody>
+                      <p>Copy the URL below and share it with anyone:</p>
+                      <input
+                        type="text"
+                        value={window.location.href}
+                        readOnly
+                        onClick={(e) => e.target.select()}
+                      />
+                    </ModalBody>
+                    <ModalFooter>
+                      <Button
+                        onClick={closeModal}
+                        _hover={{ bg: "black", color: "white" }}
+                        bgColor="white"
+                        color="black"
+                        border="1px solid black"
+                      >
+                        Close
+                      </Button>
+                    </ModalFooter>
+                  </ModalContent>
+                </Modal>
               </Flex>
               <div>
                 {show === true && credits === true ? (
