@@ -17,6 +17,7 @@ import {
   Box,
   Flex,
 } from "@chakra-ui/react";
+import { useToast, ToastProvider } from '@chakra-ui/react';
 import OpenAI from "openai";
 import Spaces from "@ably/spaces";
 import { Realtime } from "ably";
@@ -28,6 +29,7 @@ const extensions = [javascript({ jsx: true })];
 
 const CodeEditor = () => {
   const { id } = useParams();
+  const toast = useToast();
   const [codeDetails, setCodeDetails] = useState({});
   const [show, setShow] = useState(false);
   const [credits, setCredits] = useState(null);
@@ -44,6 +46,7 @@ const CodeEditor = () => {
   const [currentLine, setCurrentLine] = useState(0);
   const [roomID, setRoomID] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showPopover, setShowPopover] = useState(false);
   const [showSpaceItems, setShowSpaceItems] = useState(
     localStorage.getItem("session") &&
       localStorage.getItem("session") === "true"
@@ -67,6 +70,20 @@ const CodeEditor = () => {
   useEffect(() => {
     allSpaceStuff();
   }, []);
+
+  useEffect(() => {
+    if (showPopover) {
+      toast({
+        title: 'Alert!',
+        description: 'Your peer is requesting for a video call',
+        status: 'warning',
+        duration: 3000, 
+        isClosable: true,
+      });
+
+      setShowPopover(false);
+    }
+  }, [showPopover, toast]);
 
   function renderCursor(participant) {
     let cursor = document.getElementById(participant.name);
@@ -406,6 +423,12 @@ const CodeEditor = () => {
           );
         }
       }
+      channel.subscribe("video-request",(message)=>{
+        const isMyMessage = message.connectionId === ably.connection.id;
+    if (!isMyMessage) {
+      setShowPopover(true);
+    }
+      })
       const requestBody = JSON.stringify({ spaceID: spaceName });
       console.log(spaceName);
       try {
@@ -690,8 +713,11 @@ const CodeEditor = () => {
         ))}
       </Flex>
       {spaceName ? (
-        <div style={{ position: "absolute", bottom: 5, right: 5 }}>
+        <div style={{ position: "absolute", bottom: 5, right: 5, display: "flex", gap: "5px" }}>
           <VideoCall roomID={roomID} />
+          <Button onClick={()=> {
+            channel.publish({ name: "video-request", data: "connect for a call" });
+          }}>Request for Video Call</Button>
         </div>
       ) : (
         <></>
