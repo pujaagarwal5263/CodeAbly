@@ -160,7 +160,7 @@ function VideoCall(roomID) {
         webcamEnabled: true,
         name: localStorage.getItem("name"),
       }}
-      token="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcGlrZXkiOiI4MzBmMjk2MC1iNzI4LTQyZDAtODVhNi03MjIzZWZmMDhhMWIiLCJwZXJtaXNzaW9ucyI6WyJhbGxvd19qb2luIl0sImlhdCI6MTcwNzgxMjExNiwiZXhwIjoxNzA3ODk4NTE2fQ.IHIHbhysioibLKC1yCZR-zB0XiPOLMMQ7catND1v5JU"
+      token={authToken}
     >
       <MeetingConsumer>
         {() => (
